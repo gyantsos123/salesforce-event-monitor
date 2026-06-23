@@ -1,0 +1,224 @@
+<template>
+    <div class="monitor-shell">
+
+        <!-- ── Header ─────────────────────────────────────────────────────── -->
+        <header class="monitor-header">
+            <div class="header-left">
+                <span class="header-icon">⚡</span>
+                <h1 class="header-title">Live Event Monitor</h1>
+                <span class={statusDotClass}></span>
+                <span class="header-status">{statusText}</span>
+            </div>
+
+            <div class="header-stats">
+                <template for:each={statsList} for:item="stat">
+                    <div key={stat.color} class={stat.badgeClass}>
+                        <span class="stat-count">{stat.count}</span>
+                        <span class="stat-label">{stat.label}</span>
+                    </div>
+                </template>
+                <div class="stat-total">
+                    <span class="stat-count">{totalCount}</span>
+                    <span class="stat-label">total</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Error Banner ───────────────────────────────────────────────── -->
+        <template lwc:if={hasError}>
+            <div class="error-banner">
+                <span class="error-icon">⚠</span>
+                <span class="error-text">{lastError}</span>
+                <button class="ctrl-btn ctrl-btn--resume" onclick={reconnect}>↻ Retry</button>
+            </div>
+        </template>
+
+        <!-- ── Controls ───────────────────────────────────────────────────── -->
+        <div class="monitor-controls">
+            <div class="filter-row">
+                <span class="filter-label">Filter:</span>
+                <template for:each={channelFilters} for:item="f">
+                    <button key={f.channel}
+                            class={f.chipClass}
+                            data-channel={f.channel}
+                            onclick={toggleFilter}>
+                        {f.label}
+                    </button>
+                </template>
+                <button class="filter-chip filter-chip--all" onclick={clearFilters}>All</button>
+            </div>
+
+            <div class="action-row">
+                <button class={pauseButtonClass} onclick={togglePause}>{pauseButtonLabel}</button>
+                <button class={noiseButtonClass} onclick={toggleMonitorNoise}>{noiseButtonLabel}</button>
+                <button class="ctrl-btn ctrl-btn--clear" onclick={clearEvents}>⊘ Clear</button>
+                <template lwc:if={isFiltered}>
+                    <button class="ctrl-btn ctrl-btn--history" onclick={showHistory}>↺ Show History</button>
+                </template>
+                <span class="event-counter">{eventCount} events</span>
+            </div>
+        </div>
+
+        <!-- ── Filter Banner ─────────────────────────────────────────────────── -->
+        <template lwc:if={isFiltered}>
+            <div class="filter-banner">
+                <span class="filter-banner-icon">📋</span>
+                <span class="filter-banner-text">Cleared at {clearedAtDisplay} · Showing only new events</span>
+                <button class="filter-banner-btn" onclick={showHistory}>Show All History</button>
+            </div>
+        </template>
+
+        <!-- ── Event Feed ──────────────────────────────────────────────────── -->
+        <div class="event-feed" role="log" aria-live="polite" aria-label="Live event feed">
+
+            <template lwc:if={hasEvents}>
+                <template for:each={visibleEvents} for:item="event">
+                    <div key={event.id}
+                         class={event.cardClass}
+                         role="button"
+                         tabindex="0"
+                         aria-label="Event details"
+                         data-id={event.id}
+                         onclick={openModal}>
+
+                        <!-- Source icon column -->
+                        <div class="card-icon-col">
+                            <template lwc:if={event.isIconAgentforce}>
+                                <!-- Agentforce hexagonal "A" logo -->
+                                <svg class="src-icon src-icon--agentforce" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="Agentforce">
+                                    <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="#0176D3" stroke="none"/>
+                                    <text x="20" y="27" text-anchor="middle" font-family="Salesforce Sans,Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">A</text>
+                                </svg>
+                            </template>
+                            <template lwc:if={event.isIconCli}>
+                                <!-- Terminal / CLI icon -->
+                                <svg class="src-icon src-icon--cli" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="CLI">
+                                    <rect x="2" y="6" width="36" height="28" rx="4" fill="#1e293b"/>
+                                    <polyline points="9,15 16,20 9,25" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="19" y1="26" x2="31" y2="26" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                            </template>
+                            <template lwc:if={event.isIconSalesforce}>
+                                <!-- Salesforce cloud logo (brand-correct) -->
+                                <svg class="src-icon src-icon--salesforce" viewBox="0 0 56 40" xmlns="http://www.w3.org/2000/svg" aria-label="Salesforce UI">
+                                    <path d="M23.1 6.4a12.7 12.7 0 0 1 9.6-4.4c4.8 0 9 2.7 11.2 6.7a10.6 10.6 0 0 1 4.3-.9 10.8 10.8 0 0 1 0 21.6H9.5a9.5 9.5 0 0 1-1-18.9 12.7 12.7 0 0 1 14.6-4.1z" fill="#00A1E0"/>
+                                </svg>
+                            </template>
+                            <template lwc:if={event.isIconApi}>
+                                <!-- Generic API / gear icon -->
+                                <svg class="src-icon src-icon--api" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="API">
+                                    <circle cx="20" cy="20" r="17" fill="none" stroke="#64748b" stroke-width="2.5"/>
+                                    <text x="20" y="25" text-anchor="middle" font-family="Salesforce Sans,Arial,sans-serif" font-size="10" font-weight="600" fill="#64748b">API</text>
+                                </svg>
+                            </template>
+                            <template lwc:if={event.isIconDashboard}>
+                                <!-- Dashboard direct REST query icon -->
+                                <svg class="src-icon src-icon--dashboard" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="Dashboard">
+                                    <circle cx="20" cy="20" r="17" fill="#fef2f2" stroke="#ef4444" stroke-width="2.5"/>
+                                    <text x="20" y="25" text-anchor="middle" font-family="Salesforce Sans,Arial,sans-serif" font-size="14" font-weight="700" fill="#ef4444">D</text>
+                                </svg>
+                            </template>
+                            <template lwc:if={event.isIconMcp}>
+                                <!-- MCP gateway blue "M" icon -->
+                                <svg class="src-icon src-icon--mcp" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="MCP">
+                                    <circle cx="20" cy="20" r="18" fill="#0ea5e9" stroke="none"/>
+                                    <text x="20" y="27" text-anchor="middle" font-family="Salesforce Sans,Arial,sans-serif" font-size="20" font-weight="800" fill="#ffffff">M</text>
+                                </svg>
+                            </template>
+                        </div>
+
+                        <!-- Card body (icon excluded) -->
+                        <div class="card-body">
+                            <!-- Card header row -->
+                            <div class="card-top">
+                                <span class={event.labelBadgeClass}>{event.label}</span>
+                                <span class="card-user">{event.user}</span>
+
+                                <div class="card-tags">
+                                    <template lwc:if={event.origin}>
+                                        <span class={event.originTagClass}>{event.origin}</span>
+                                    </template>
+                                    <template lwc:if={event.operation}>
+                                        <span class={event.operationTagClass}>{event.operation}</span>
+                                    </template>
+                                </div>
+
+                                <span class="card-time">{event.timeDisplay}</span>
+                            </div>
+
+                            <!-- Key fields row -->
+                            <div class="card-meta">
+                                <template for:each={event.keyFields} for:item="field">
+                                    <span key={field.key} class="meta-chip">
+                                        <span class="meta-key">{field.key}</span>
+                                        <span class="meta-val">{field.value}</span>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+            </template>
+
+            <template lwc:if={isPaused}>
+                <div class="pause-banner">⏸ Paused — incoming events are being suppressed</div>
+            </template>
+
+            <template lwc:else>
+                <template lwc:if={hasEvents}><!-- already rendered above --></template>
+                <template lwc:else>
+                    <div class="empty-state" aria-live="polite">
+                        <template lwc:if={isLoading}>
+                            <div class="empty-icon">⏳</div>
+                            <p class="empty-title">Loading last 8 hours of history…</p>
+                            <p class="empty-sub">This takes a moment on first load.</p>
+                        </template>
+                        <template lwc:else>
+                            <div class="empty-icon">📡</div>
+                            <p class="empty-title">No events in the last 8 hours</p>
+                            <p class="empty-sub">New activity will appear automatically every 20 seconds.</p>
+                        </template>
+                    </div>
+                </template>
+            </template>
+
+        </div>
+
+        <!-- ── Detail Modal ───────────────────────────────────────────────── -->
+        <template lwc:if={selectedEvent}>
+            <!-- eslint-disable-next-line @lwc/lwc/no-template-children -->
+            <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Event detail" onclick={closeModal}>
+                <div class="modal-box" onclick={stopPropagation}>
+
+                    <div class={selectedEvent.modalHeaderClass}>
+                        <div class="modal-header-left">
+                            <span class={selectedEvent.labelBadgeClass}>{selectedEvent.label}</span>
+                            <span class="modal-user">{selectedEvent.user}</span>
+                        </div>
+                        <button class="modal-close" onclick={closeModal} aria-label="Close">✕</button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="modal-tags">
+                            <template lwc:if={selectedEvent.origin}>
+                                <span class={selectedEvent.originTagClass}>{selectedEvent.origin}</span>
+                            </template>
+                            <template lwc:if={selectedEvent.operation}>
+                                <span class={selectedEvent.operationTagClass}>{selectedEvent.operation}</span>
+                            </template>
+                            <template lwc:if={selectedEvent.replayId}>
+                                <span class="tag tag--replay">Replay #{selectedEvent.replayId}</span>
+                            </template>
+                            <span class="modal-time">{selectedEvent.timeDisplay}</span>
+                        </div>
+
+                        <pre class="payload-json">{selectedEvent.prettyPayload}</pre>
+                    </div>
+
+                </div>
+            </div>
+        </template>
+
+    </div>
+</template>

@@ -1,0 +1,230 @@
+<template>
+    <div class="et-root">
+        <!-- Header -->
+        <div class="et-header">
+            <div class="et-header-title">
+                <lightning-icon icon-name="standard:timesheet_entry" size="small"></lightning-icon>
+                <div>
+                    <h1>Event Timeline</h1>
+                    <p>Stitch Event Log Object activity into a per-session story, threaded by LoginKey.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="et-controls slds-box slds-theme_shade">
+            <div class="et-control-row">
+                <!-- User search -->
+                <div class="et-user-search">
+                    <label class="slds-form-element__label">User</label>
+                    <div class="slds-combobox_container">
+                        <div class="et-input-wrap">
+                            <lightning-icon icon-name="utility:search" size="x-small" class="et-search-icon"></lightning-icon>
+                            <input
+                                type="text"
+                                class="slds-input et-user-input"
+                                placeholder="Search by name or username…"
+                                value={userSearchTerm}
+                                onfocus={handleUserFocus}
+                                onblur={handleBlur}
+                                oninput={handleUserInput}
+                                autocomplete="off"
+                            />
+                        </div>
+                        <template if:true={showResults}>
+                            <ul class="et-results" role="listbox">
+                                <template for:each={userResults} for:item="u">
+                                    <li
+                                        key={u.id}
+                                        class="et-result-item"
+                                        data-id={u.id}
+                                        data-label={u.label}
+                                        onclick={handleSelectUser}
+                                    >
+                                        <span class="et-result-name">{u.label}</span>
+                                        <span class="et-result-sub">{u.sublabel}</span>
+                                    </li>
+                                </template>
+                                <template if:false={userResults.length}>
+                                    <li class="et-result-empty">No active users match.</li>
+                                </template>
+                            </ul>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Dates -->
+                <div class="et-dates">
+                    <lightning-input
+                        type="date"
+                        label="From"
+                        value={startDate}
+                        onchange={handleStartDate}
+                        class="et-date"
+                    ></lightning-input>
+                    <lightning-input
+                        type="date"
+                        label="To"
+                        value={endDate}
+                        onchange={handleEndDate}
+                        class="et-date"
+                    ></lightning-input>
+                </div>
+            </div>
+
+            <!-- Presets + build -->
+            <div class="et-control-row et-control-row_bottom">
+                <div class="et-presets">
+                    <template for:each={presetButtons} for:item="p">
+                        <lightning-button
+                            key={p.key}
+                            label={p.label}
+                            data-preset={p.key}
+                            variant={p.variant}
+                            onclick={handlePreset}
+                            class="et-preset-btn"
+                        ></lightning-button>
+                    </template>
+                </div>
+                <lightning-button
+                    label="Build timeline"
+                    variant="brand"
+                    icon-name="utility:timeline"
+                    disabled={buildDisabled}
+                    onclick={handleBuild}
+                ></lightning-button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <template if:true={loading}>
+            <div class="et-loading">
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+                <p>Querying Event Log Objects…</p>
+            </div>
+        </template>
+
+        <!-- Error -->
+        <template if:true={errorMsg}>
+            <div class="slds-notify slds-notify_alert slds-alert_error et-alert" role="alert">
+                <lightning-icon icon-name="utility:error" size="x-small" variant="inverse"></lightning-icon>
+                <span class="slds-m-left_x-small">{errorMsg}</span>
+            </div>
+        </template>
+
+        <!-- Results -->
+        <template if:true={hasResults}>
+            <!-- Summary -->
+            <div class="et-summary">
+                <div class="et-summary-main">
+                    <span class="et-summary-user">{resultUserName}</span>
+                    <span class="et-summary-meta">{totalEvents} events · {sessions.length} session(s)</span>
+                </div>
+                <div class="et-summary-sources">
+                    <span class="et-sources-label">Sources:</span> {sourcesLabel}
+                </div>
+            </div>
+
+            <!-- Warnings -->
+            <template if:true={hasWarnings}>
+                <div class="et-warnings">
+                    <template for:each={warnings} for:item="w">
+                        <div key={w} class="et-warning-item">
+                            <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                            <span>{w}</span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Sessions -->
+            <template for:each={sessions} for:item="s">
+                <div key={s.uiKey} class="et-session">
+                    <div class="et-session-header" style={s.headerStyle}>
+                        <div class="et-session-headline">
+                            <lightning-icon
+                                icon-name="utility:user"
+                                size="small"
+                                class="et-session-icon"
+                            ></lightning-icon>
+                            <div>
+                                <div class="et-session-title">{s.label}</div>
+                                <div class="et-session-range">{s.rangeLabel}</div>
+                            </div>
+                        </div>
+                        <div class="et-session-chips">
+                            <template if:true={s.hasLogin}>
+                                <span class="et-chip et-chip_ip" if:true={s.sourceIp}>{s.sourceIp}</span>
+                                <span class="et-chip" if:true={s.loginType}>{s.loginType}</span>
+                                <span class="et-chip" if:true={s.application}>{s.application}</span>
+                                <span class="et-chip" if:true={s.platform}>{s.platform}</span>
+                            </template>
+                            <span class="et-chip et-chip_count">{s.eventCount} events</span>
+                        </div>
+                    </div>
+
+                    <!-- Timeline -->
+                    <ul class="et-timeline">
+                        <template for:each={s.events} for:item="e">
+                            <li key={e.uiKey} class="et-event" style={e.style}>
+                                <div class="et-event-marker">
+                                    <span class="et-dot"></span>
+                                </div>
+                                <div class="et-event-body">
+                                    <div
+                                        class="et-event-summary"
+                                        data-key={e.uiKey}
+                                        onclick={handleToggleEvent}
+                                    >
+                                        <lightning-icon
+                                            icon-name={e.iconName}
+                                            size="x-small"
+                                            class="et-event-typeicon"
+                                        ></lightning-icon>
+                                        <span class="et-event-cat">{e.category}</span>
+                                        <span class="et-event-subtitle">{e.subtitle}</span>
+                                        <span class="et-event-time">{e.timeLabel}</span>
+                                        <template if:true={e.hasDetails}>
+                                            <lightning-icon
+                                                icon-name={e.chevron}
+                                                size="xx-small"
+                                                class="et-event-chevron"
+                                            ></lightning-icon>
+                                        </template>
+                                    </div>
+                                    <template if:true={e.expanded}>
+                                        <div class="et-event-details">
+                                            <template for:each={e.details} for:item="d">
+                                                <div key={d.label} class="et-detail">
+                                                    <span class="et-detail-label">{d.label}</span>
+                                                    <span class="et-detail-value">{d.value}</span>
+                                                </div>
+                                            </template>
+                                            <template if:true={e.requestId}>
+                                                <div class="et-detail et-detail_req">
+                                                    <span class="et-detail-label">Request Id</span>
+                                                    <span class="et-detail-value">{e.requestId}</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </template>
+        </template>
+
+        <!-- Empty -->
+        <template if:true={showEmpty}>
+            <div class="et-empty">
+                <lightning-icon icon-name="utility:search" size="large"></lightning-icon>
+                <p>No events found for this user and range.</p>
+                <p class="et-empty-sub">
+                    Event Log Objects retain ~30 days of data and may take 25–45 minutes to appear.
+                </p>
+            </div>
+        </template>
+    </div>
+</template>
