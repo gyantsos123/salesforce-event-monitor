@@ -2,8 +2,6 @@
 
 A Lightning Web Component (LWC) for real-time monitoring of Salesforce Shield Event Monitoring data. Visualize login events, API calls, UI activity, and more as they happen.
 
-![Event Monitor](docs/screenshots/monitor.png)
-
 ## Features
 
 - **Real-Time Event Streaming** — Polls Event Log Objects every 5 seconds
@@ -15,11 +13,9 @@ A Lightning Web Component (LWC) for real-time monitoring of Salesforce Shield Ev
 - **Pause/Resume** — Freeze the display while investigating
 - **Detail Modal** — Click any event for full payload inspection
 
-## Screenshots
+## Screenshot
 
-| Live Monitor | Event Detail | Filtered View |
-|--------------|--------------|---------------|
-| ![Monitor](docs/screenshots/monitor-thumb.png) | ![Detail](docs/screenshots/detail-thumb.png) | ![Filtered](docs/screenshots/filtered-thumb.png) |
+![Event Monitor](docs/screenshots/monitor.png)
 
 ## Architecture
 
