@@ -3,7 +3,7 @@ import getRecentEvents from '@salesforce/apex/EventMonitorController.getRecentEv
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MAX_EVENTS    = 15;
+const MAX_EVENTS    = 100; // retained in the scrollable feed (Apex returns up to ~50/type)
 const POLL_INTERVAL = 5000; // ms
 
 const CHANNEL_CONFIG = {

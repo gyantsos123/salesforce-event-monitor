@@ -97,7 +97,8 @@
 .monitor-shell {
     background: #0a0f1e;
     color: #e2e8f0;
-    min-height: 100vh;
+    height: 100vh;          /* bound to the viewport so the feed scrolls, not the page */
+    overflow: hidden;       /* only the .event-feed scrolls; header/controls stay put */
     display: flex;
     flex-direction: column;
 }
@@ -364,10 +365,31 @@
 
 /* ── Event Feed ────────────────────────────────────────────────────────────── */
 .event-feed {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;          /* allow this flex child to shrink so overflow-y can scroll */
     padding: 12px 20px;
     overflow-y: auto;
     scroll-behavior: smooth;
+}
+
+/* Dark-theme scrollbar for the feed */
+.event-feed::-webkit-scrollbar {
+    width: 10px;
+}
+.event-feed::-webkit-scrollbar-track {
+    background: #0a0f1e;
+}
+.event-feed::-webkit-scrollbar-thumb {
+    background: #1e3a5f;
+    border-radius: 6px;
+    border: 2px solid #0a0f1e;
+}
+.event-feed::-webkit-scrollbar-thumb:hover {
+    background: #2d4f7c;
+}
+.event-feed {
+    scrollbar-width: thin;
+    scrollbar-color: #1e3a5f #0a0f1e;
 }
 
 /* ── Event Cards ───────────────────────────────────────────────────────────── */
